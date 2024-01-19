@@ -49,6 +49,7 @@ const char *backtrace_function_name(uint32_t pc);
 
 static inline int __attribute__((always_inline)) backtrace_unwind(backtrace_t *buffer, int size)
 {
+#ifndef SIMULATION_IN_PC
 	/* Get the current pc */
 	register uint32_t pc;
 	__asm__ volatile("mov %0, pc" : "=r"(pc));
@@ -62,6 +63,7 @@ static inline int __attribute__((always_inline)) backtrace_unwind(backtrace_t *b
 
 	/* Let it rip */
 	return _backtrace_unwind(buffer, size, &frame);
+#endif
 }
 
 #endif /* BACKTRACE_H_ */

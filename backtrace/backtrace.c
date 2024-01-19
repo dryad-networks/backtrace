@@ -10,6 +10,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern uint32_t _drd_bt_flash_start;
+extern uint32_t _drd_bt_flash_end;
+extern uint32_t _drd_bt_ram_start;
+extern uint32_t _drd_bt_ram_end;
+
 /* This prevents the linking of libgcc unwinder code */
 void __aeabi_unwind_cpp_pr0(void);
 void __aeabi_unwind_cpp_pr1(void);
@@ -243,6 +248,20 @@ static inline __attribute__((always_inline)) uint32_t *read_psp(void)
 	return (uint32_t*)psp;
 }
 
+static uint8_t drdCheckForInRange(uint32_t addr)
+{
+	uint32_t drdFlashStartAdd = (uint32_t)&_drd_bt_flash_start;
+	uint32_t drdFlashEndAdd = (uint32_t)&_drd_bt_flash_end;
+	uint32_t drdRamStartAdd = (uint32_t)&_drd_bt_ram_start;
+	uint32_t drdRamEndAdd = (uint32_t)&_drd_bt_ram_end;
+
+	if(((addr >= drdFlashStartAdd) && (addr <= drdFlashEndAdd)) ||
+			((addr >= drdRamStartAdd) && (addr <= drdRamEndAdd))) {
+		return 1;
+	}
+	return 0;
+}
+
 /* TODO How do I range check the stack pointer */
 static int unwind_frame(backtrace_frame_t *frame)
 {
@@ -336,8 +355,19 @@ static int unwind_frame(backtrace_frame_t *frame)
 	frame->lr = ucb.vrs[14];
 	frame->pc = ucb.vrs[15];
 
-	/* All good */
-	return 1;
+	if(drdCheckForInRange(frame->fp)) {
+		if(drdCheckForInRange(frame->sp)) {
+			if(drdCheckForInRange(frame->lr)) {
+				if(drdCheckForInRange(frame->pc)) {
+					/* All good */
+					return 1;
+				}
+			}
+		}
+	}
+
+	/* All Not good */
+	return 0;
 }
 
 int _backtrace_unwind(backtrace_t *buffer, int size, backtrace_frame_t *frame)
